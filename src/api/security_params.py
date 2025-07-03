@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Body, Query
-from sqlalchemy import insert, select
+from sqlalchemy import select
 
 from src.api.dependencies import PaginationDep
 from src.database import async_session_maker
-from src.models.security_params import SecuritiesParamsOrm
-from src.schemas.security_params import Security
+from src.models.security_params import SecurityParamsOrm
+from src.repositories.security_params import SecurityParamsRepositories
+from src.schemas.security_params import Security, SecurityPATCH
 
 router = APIRouter(prefix='/security-params', tags=['Информация о инструменте'])
 
@@ -17,11 +18,11 @@ async def get_securities(
 ):
     per_page = pagination.per_page or 5
     async with (async_session_maker() as session):
-        query = select(SecuritiesParamsOrm)
+        query = select(SecurityParamsOrm)
         if name:
-            query = query.filter(SecuritiesParamsOrm.name.like(f"%{name}%"))
+            query = query.filter(SecurityParamsOrm.name.like(f"%{name}%"))
         if code:
-            query = query.filter(SecuritiesParamsOrm.code.like(f"%{code}%"))
+            query = query.filter(SecurityParamsOrm.code.like(f"%{code}%"))
         query = (
             query
             .limit(per_page)
@@ -32,6 +33,12 @@ async def get_securities(
         return securities_param
 
 
+@router.get('{/security_id}')
+async def get_security(security_id: int):
+    async with async_session_maker() as session:
+        return await SecurityParamsRepositories(session).get_one_or_none(id=security_id)
+
+
 @router.post('')
 async def create_security(security_data: Security = Body(openapi_examples={
     '1': {'summary': "Тестовая бумага", 'value': {
@@ -40,22 +47,39 @@ async def create_security(security_data: Security = Body(openapi_examples={
     }}
 })):
     async with async_session_maker() as session:
-        add_security_stmt = insert(SecuritiesParamsOrm).values(**security_data.model_dump())
-        await session.execute(add_security_stmt)
+        security = await SecurityParamsRepositories(session).add(security_data)
         await session.commit()
-    return {'status': 'OK'}
+
+    return {'status': 'OK', "data": security}
 
 
 @router.put('/{security_id}')
-def edit_security(security_id: int, security_data: Security):
+async def edit_security(
+        security_id: int,
+        security_data: Security = Body(openapi_examples={
+            '1': {'summary': "Тестовая бумага", 'value': {
+                'name': 'Тестовая бумага',
+                'code': 'XXU5'
+            }}
+        })
+):
+    async with async_session_maker() as session:
+        await SecurityParamsRepositories(session).edit(security_data, id=security_id)
+        await session.commit()
+
     return {'status': 'OK'}
 
 
 @router.patch('/{security_id}')
-def patch_secutity(security_id: int, security_data: Security):
+def patch_secutity(security_id: int, security_data: SecurityPATCH):
+    async with async_session_maker() as session:
+        await SecurityParamsRepositories(session).edit(security_data, exclude_unset=True, id=security_id)
     return {'status': 'OK'}
 
 
 @router.delete('/{security_id}')
-def delete_secutity(security_id: int):
+async def delete_secutity(security_id: int):
+    async with async_session_maker() as session:
+        await SecurityParamsRepositories(session).delete(id=security_id)
+        await session.commit()
     return {'status': 'OK'}

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from src.database import Base
 
 
-class SecuritiesParamsOrm(Base):
+class SecurityParamsOrm(Base):
     __tablename__ = "securities_param"
 
     id: Mapped[int] = mapped_column(primary_key=True)
