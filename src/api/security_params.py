@@ -12,19 +12,16 @@ router = APIRouter(prefix='/security-params', tags=['Информация о и�
 @router.get('')
 async def get_securities(
         pagination: PaginationDep,
-        id: int | None = Query(None, description="ID"),
         name: str | None = Query(None, description="Имя инструмента"),
         code: str | None = Query(None, description="Код инструмента")
 ):
     per_page = pagination.per_page or 5
     async with (async_session_maker() as session):
         query = select(SecuritiesParamsOrm)
-        if id:
-            query = query.filter_by(id=id)
         if name:
-            query = query.filter_by(name=name)
+            query = query.filter(SecuritiesParamsOrm.name.like(f"%{name}%"))
         if code:
-            query = query.filter_by(code=code)
+            query = query.filter(SecuritiesParamsOrm.code.like(f"%{code}%"))
         query = (
             query
             .limit(per_page)
